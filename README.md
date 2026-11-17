@@ -22,6 +22,19 @@ Run the checks with:
 make check
 ```
 
+## MCP server
+
+The backend runs as a standalone stdio MCP server:
+
+```powershell
+python -m bodhan_mcp
+```
+
+It exposes typed `transcribe`, `translate`, `speak`, `ocr`, and local
+`detect_language` tools. Media tools take file paths rather than inline data;
+Bodhan API credentials are read from the model-specific `BODHAN_*_KEY`
+environment variables.
+
 ## Project structure
 
 - `backend/` — MCP server and Bodhan model tools

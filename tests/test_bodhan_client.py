@@ -39,3 +39,19 @@ async def test_missing_file_returns_structured_error(tmp_path):
     assert result.ok is False
     assert result.error is not None
     assert result.error.code == "file_not_found"
+
+
+@pytest.mark.anyio
+async def test_requests_send_configured_api_key(tmp_path, monkeypatch):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer test-key"
+        return httpx.Response(200, json={"translated": "hello"}, request=request)
+
+    monkeypatch.setenv("BODHAN_TRANSLATE_KEY", "test-key")
+    async with BodhanClient(
+        cache_dir=tmp_path,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        result = await client.translate("नमस्ते", source_lang="hi", target_lang="en")
+
+    assert result.ok is True

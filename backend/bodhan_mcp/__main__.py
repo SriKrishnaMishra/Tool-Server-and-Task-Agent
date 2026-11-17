@@ -1,9 +1,11 @@
 """Run the Bodhan MCP server."""
 
+from .server import run
+
 
 def main() -> None:
-    """Start the MCP server."""
-    raise NotImplementedError("The MCP server is added in the MCP implementation milestone.")
+    """Start the Bodhan MCP server over stdio."""
+    run()
 
 
 if __name__ == "__main__":
