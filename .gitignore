@@ -11,5 +11,9 @@ media/
 dist/
 build/
 *.egg-info/
+Assignment-Email.md
+Agentic-Engineer-Take-Home-Bodhan-Tool-Server-and-Task-Agent.md
+Implementation-Prompts.md
+frontend/
 frontend/node_modules/
 frontend/dist/

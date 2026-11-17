@@ -37,11 +37,6 @@ environment variables.
 
 ## Project structure
 
-- `backend/` — MCP server and Bodhan model tools
-- `ai/` — task-agent orchestration and LLM integration
-- `frontend/` — frontend scaffold for displaying task runs and traces
+- `src/bodhan_mcp/` — MCP server and Bodhan model tools
+- `src/bodhan_agent/` — task-agent orchestration and LLM integration
 - `tests/` — automated tests
-
-- [Assignment brief](./Agentic-Engineer-Take-Home-Bodhan-Tool-Server-and-Task-Agent.md)
-- [Assignment email](./Assignment-Email.md)
-- [Implementation prompts](./Implementation-Prompts.md)
