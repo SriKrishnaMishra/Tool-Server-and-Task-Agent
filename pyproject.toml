@@ -26,11 +26,12 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["backend", "ai"]
+include = ["bodhan_mcp*", "bodhan_agent*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["backend", "ai"]
 
 [tool.ruff]
 line-length = 100

@@ -22,6 +22,13 @@ Run the checks with:
 make check
 ```
 
+## Project structure
+
+- `backend/` — MCP server and Bodhan model tools
+- `ai/` — task-agent orchestration and LLM integration
+- `frontend/` — frontend scaffold for displaying task runs and traces
+- `tests/` — automated tests
+
 - [Assignment brief](./Agentic-Engineer-Take-Home-Bodhan-Tool-Server-and-Task-Agent.md)
 - [Assignment email](./Assignment-Email.md)
 - [Implementation prompts](./Implementation-Prompts.md)

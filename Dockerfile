@@ -6,7 +6,9 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY pyproject.toml ./
-COPY src ./src
+COPY backend ./backend
+COPY ai ./ai
+COPY frontend ./frontend
 COPY tests ./tests
 COPY README.md ./
 
