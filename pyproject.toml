@@ -9,7 +9,7 @@ description = "Bodhan MCP tool server and task agent"
 requires-python = ">=3.11"
 dependencies = [
   "httpx==0.28.1",
-  "mcp==1.9.4",
+  "mcp==1.30.0",
   "openai==1.82.0",
   "pdf2image==1.17.0",
   "pillow==13.0.0",
@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest==8.3.5",
+  "pytest==8.4.2",
   "ruff==0.11.10",
 ]
 
