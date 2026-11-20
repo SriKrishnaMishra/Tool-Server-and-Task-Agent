@@ -12,6 +12,7 @@ dependencies = [
   "mcp==1.30.0",
   "openai==1.82.0",
   "pdf2image==1.17.0",
+  "pymupdf==1.26.6",
   "pillow==13.0.0",
   "pydub==0.25.1",
   "pydantic==2.12.5",
@@ -26,12 +27,12 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["backend", "ai"]
+where = ["src"]
 include = ["bodhan_mcp*", "bodhan_agent*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["backend", "ai"]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
