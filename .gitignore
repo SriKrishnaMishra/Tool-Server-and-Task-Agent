@@ -6,6 +6,9 @@ __pycache__/
 .ruff_cache/
 out/
 .cache/
+*.wav
+*.mp3
+*.mp4
 cache/
 media/
 dist/

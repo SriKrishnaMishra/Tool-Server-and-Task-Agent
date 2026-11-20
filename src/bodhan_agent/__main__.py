@@ -45,8 +45,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not args.task.strip():
         parser.error("--task must not be empty")
-    return run_task(args.task, args.files, args.out, max_steps=args.max_steps,
-                    max_cost_inr=args.max_cost_inr, max_seconds=args.max_seconds)
+    return run_task(
+        args.task,
+        args.files,
+        args.out,
+        max_steps=args.max_steps,
+        max_cost_inr=args.max_cost_inr,
+        max_seconds=args.max_seconds,
+    )
 
 
 if __name__ == "__main__":

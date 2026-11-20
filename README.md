@@ -1,42 +1,126 @@
-﻿# Tool-Server-and-Task-Agent
+# Bodhan Tool Server and Task Agent
 
-Implementation of the Bodhan MCP tool server and task agent take-home assignment.
+This repository provides an MCP stdio server and a bounded task agent for Bodhan
+Indic speech, translation, transcription, and OCR operations.
 
-## Development setup
+## Setup
 
-This project requires Python 3.11 or newer. Install the pinned dependencies with:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-```
-
-The media tools require `ffmpeg`; PDF rendering also requires Poppler. Both are
-installed by the included Dockerfile. Copy `.env.example` to `.env` and add
-credentials only when running the real Bodhan integrations.
-
-Run the checks with:
+Requires Python 3.11 or newer.
 
 ```powershell
-make check
+py -3.11 -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+.\\.venv\\Scripts\\python.exe -m pip install -e ".[dev]"
+Copy-Item .env.example .env
 ```
+
+Fill `.env` with Bodhan model keys and, for the task agent, OpenAI-compatible
+LLM settings:
+
+- `BODHAN_TRANSCRIBE_KEY`
+- `BODHAN_TRANSLATE_KEY`
+- `BODHAN_SPEAK_KEY`
+- `BODHAN_OCR_KEY`
+- `LLM_BASE_URL`
+- `LLM_MODEL`
+- `LLM_API_KEY`
+
+Do not commit `.env`. Generated media, caches, and run output are ignored.
+
+System dependencies:
+
+- `ffmpeg` must be on `PATH` for audio conversion and media processing.
+- Poppler must be on `PATH` for scanned-PDF rendering.
+- Docker is also available through the repository Dockerfile, which installs
+  `ffmpeg` and Poppler.
 
 ## MCP server
 
-The backend runs as a standalone stdio MCP server:
+Start the server over stdio:
 
 ```powershell
-python -m bodhan_mcp
+.\\.venv\\Scripts\\python.exe -m bodhan_mcp
 ```
 
-It exposes typed `transcribe`, `translate`, `speak`, `ocr`, and local
-`detect_language` tools. Media tools take file paths rather than inline data;
-Bodhan API credentials are read from the model-specific `BODHAN_*_KEY`
-environment variables.
+The MCP client used for local validation is **MCP Inspector**.
 
-## Project structure
+## Task agent
 
-- `src/bodhan_mcp/` — MCP server and Bodhan model tools
-- `src/bodhan_agent/` — task-agent orchestration and LLM integration
-- `tests/` — automated tests
+```powershell
+.\\.venv\\Scripts\\python.exe -m bodhan_agent `
+  --task "Translate this text to Hindi and read it aloud" `
+  --files demo/inputs/hello.txt `
+  --out ./out/example `
+  --max-steps 30 `
+  --max-cost-inr 2 `
+  --max-seconds 300
+```
+
+The agent receives the task and file-path summaries, then asks the configured
+LLM to plan tool calls. OCR and transcript text is treated as untrusted data.
+Media is passed between tools by local path, not base64.
+
+## MCP tools
+
+| Tool | Purpose | Limit handling |
+|---|---|---|
+| `transcribe` | Bodhan Indic-Transcribe speech-to-text | Converts input to 16 kHz mono WAV and splits it into bounded windows |
+| `translate` | Bodhan Indic-Translate text | Verifies translation output and preserves text/table shape |
+| `speak` | Bodhan Indic-Speak short synthesis | Requires language and voice fields and writes raw WAV locally |
+| `synthesize` | Chunked long TTS | Splits text at sentence boundaries, including danda, and concatenates local WAV chunks |
+| `ocr` | Bodhan Indic-OCR image text extraction | Processes a local image; PDF OCR renders pages separately |
+| `detect_language` | Unicode script heuristic | Used for unstated text language assumptions |
+| `inspect_media` | Inspect local image/audio/video/PDF metadata | Rejects missing or unsupported inputs through structured results |
+| `render_pdf_pages` | Render PDF pages locally | Processes pages one at a time |
+| `list_voices` | List configured language voices | Returns the fixed voice library |
+| `list_supported_languages` | List supported capabilities and codes | Keeps callers on supported language codes |
+
+One model-specific tool per operation keeps media plumbing and limit handling
+inside the server rather than requiring a third-party MCP client to implement
+chunking.
+
+## Verification and budgets
+
+- Translations preserve verified numeric tokens and Markdown table shape.
+- Every synthesis call is back-transcribed with Indic-Transcribe.
+- Audio verification uses normalized character error rate; failure triggers one
+  synthesis retry. Repeated failure is reported as `partial`.
+- Each run is bounded by maximum steps, INR cost, wall-clock time, and per-call
+  timeout.
+- `trace.jsonl` records plans/tool calls, arguments, latency, and cost.
+- `report.json` records status, elapsed time, cost, verification, and errors.
+- `result.md` contains the final answer, assumptions, and links to artifacts.
+
+## Recovery and limitations
+
+The agent uses retries and structured errors for unavailable tools, malformed
+responses, missing files, unsupported tasks, and exhausted budgets. It does not
+invent impossible outputs.
+
+Current demonstrated limitations:
+
+- OCR/provider integration failed for the worksheet demo.
+- The Telugu clips demo was impossible because the clips directory has no files.
+- The PDF and unsupported-French-video demo statuses are recorded in
+  [demo/RESULTS.md](demo/RESULTS.md).
+- The Hindi SRT demo produced transcription and translation text; the agent
+  did not create a standalone `.srt` file.
+- `demo/inputs/voice-note.wav` is AI-generated by Bodhan Indic-Speak, not a
+  human voice recording.
+
+## Demo results
+
+See [demo/RESULTS.md](demo/RESULTS.md). Only statuses shown there are claimed.
+
+## Architecture
+
+- [Architecture](docs/architecture.md)
+- [Agent flow](docs/agent_flow.md)
+- [PR description draft](PR_DESCRIPTION.md)
+
+## Checks
+
+```powershell
+.\\.venv\\Scripts\\python.exe -m ruff check .
+.\\.venv\\Scripts\\python.exe -m pytest
+```

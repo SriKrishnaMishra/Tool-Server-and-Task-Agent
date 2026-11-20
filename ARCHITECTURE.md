@@ -145,6 +145,6 @@ and is a likely future consolidation target.
 - `src/bodhan_agent/agent.py:supported_language` is defined but has no callers.
 - `LLM_BASE_URL`, `LLM_MODEL`, and `LLM_API_KEY` are documented in
   `.env.example` but no LLM bridge currently consumes them.
-- The media-related dependencies in `pyproject.toml` are provisioned for
-  planned media functionality; the current server does not yet expose media
-  inspection, chunking, PDF rendering, or voice-listing tools.
+- The server exposes path-based media inspection, audio conversion and
+  transcription chunking, PDF rendering, PDF OCR, TTS chunking, translation
+  batching, and voice/language listing tools. Media is never passed inline.

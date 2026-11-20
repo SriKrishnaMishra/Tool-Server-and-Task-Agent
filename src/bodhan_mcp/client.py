@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
@@ -87,20 +88,52 @@ class BodhanClient:
 
     async def transcribe(self, audio_path: str | Path, **options: Any) -> BodhanResult:
         """Transcribe an audio file through Indic-Transcribe."""
+        options = {"model": "indic-transcribe", **options}
         return await self._file_request("transcribe", audio_path, options)
 
     async def translate(self, text: str, **options: Any) -> BodhanResult:
         """Translate text through Indic-Translate."""
-        payload = {"text": text, **options}
+        source = str(options.pop("source_lang", "en"))
+        target = str(options.pop("target_lang", "hi"))
+        payload = {
+            "model": "indic-translate",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Translate the following text to the language code {target}:\n{text}"
+                    ),
+                }
+            ],
+            "source_lang": source,
+            "target_lang": target,
+            **options,
+        }
         return await self._json_request("translate", payload)
 
     async def speak(self, text: str, **options: Any) -> BodhanResult:
         """Synthesize speech through Indic-Speak."""
-        payload = {"text": text, **options}
+        language = str(options.pop("language", "en"))
+        voice = str(options.pop("voice", "Kavya"))
+        instructions = options.pop("instructions", None)
+        if instructions is None:
+            instruction_data: dict[str, str] = {"lang": language}
+            style = options.pop("style", None)
+            if style is not None:
+                instruction_data["style"] = str(style)
+            instructions = json.dumps(instruction_data, ensure_ascii=False)
+        payload = {
+            "model": "indic-speak",
+            "input": text,
+            "voice": voice,
+            "instructions": instructions,
+            **options,
+        }
         return await self._json_request("speak", payload)
 
     async def ocr(self, image_path: str | Path, **options: Any) -> BodhanResult:
         """Extract text from an image through Indic-OCR."""
+        options = {"model": "indic-ocr", **options}
         return await self._file_request("ocr", image_path, options)
 
     async def _file_request(
@@ -135,7 +168,8 @@ class BodhanClient:
         except (httpx.HTTPError, OSError) as exc:
             result = self._failure(model, "request_failed", str(exc),
                                    "Check credentials, network access, and the input file.")
-        self._write_cache(key, result)
+        if result.ok:
+            self._write_cache(key, result)
         return result
 
     async def _json_request(self, model: ModelName, payload: dict[str, Any]) -> BodhanResult:
@@ -149,14 +183,33 @@ class BodhanClient:
                 async with self._client() as client:
                     response = await self._send_with_retries(
                         client, "POST", self._paths[model],
-                        headers={**self._headers(model), "Content-Type": "application/json"},
+                        headers={
+                            **self._headers(model),
+                            "Accept": "audio/wav" if model == "speak" else "application/json",
+                            "Content-Type": "application/json",
+                        },
                         json=payload,
                     )
-            result = self._response_result(model, response, self._input_size(payload))
+            if model == "speak" and response.is_success:
+                content_type = response.headers.get("content-type", "").casefold()
+                if "audio" in content_type or "octet-stream" in content_type:
+                    output = Path(tempfile.mkdtemp(prefix="bodhan-speech-")) / "speech.wav"
+                    output.write_bytes(response.content)
+                    result = BodhanResult(
+                        ok=True,
+                        model=model,
+                        data={"audio_path": str(output), "output_file": str(output)},
+                        cost_inr=self._cost(model, len(str(payload.get("input", "")).encode()), {}),
+                    )
+                else:
+                    result = self._response_result(model, response, self._input_size(payload))
+            else:
+                result = self._response_result(model, response, self._input_size(payload))
         except (httpx.HTTPError, OSError) as exc:
             result = self._failure(model, "request_failed", str(exc),
                                    "Check credentials, network access, and request parameters.")
-        self._write_cache(key, result)
+        if result.ok:
+            self._write_cache(key, result)
         return result
 
     async def _send_with_retries(
@@ -194,7 +247,14 @@ class BodhanClient:
         except ValueError:
             body = {}
         if response.is_error:
-            message = body.get("error", response.text) if isinstance(body, dict) else response.text
+            if isinstance(body, dict):
+                error = body.get("error")
+                if isinstance(error, dict):
+                    message = str(error.get("message") or error.get("detail") or response.text)
+                else:
+                    message = str(error or response.text)
+            else:
+                message = response.text
             return self._failure(
                 model,
                 f"http_{response.status_code}",
@@ -202,6 +262,13 @@ class BodhanClient:
                 "Review the request fields and Bodhan API documentation.",
             )
         data = body if isinstance(body, dict) else {"value": body}
+        if model == "translate" and isinstance(body, dict):
+            choices = body.get("choices")
+            if isinstance(choices, list) and choices:
+                message = choices[0].get("message") if isinstance(choices[0], dict) else None
+                content = message.get("content") if isinstance(message, dict) else None
+                if isinstance(content, str):
+                    data = {**body, "translated": content, "text": content}
         return BodhanResult(
             ok=True, model=model, data=data, cost_inr=self._cost(model, input_size, body)
         )

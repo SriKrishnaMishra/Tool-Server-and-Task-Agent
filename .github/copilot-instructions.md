@@ -25,8 +25,8 @@ reports honest results and artifacts.
 ## Hard rules
 
 - Use only Bodhan models for ASR/transcription, translation, TTS, and OCR.
-- Never add Whisper, Tesseract, Google/Azure/AWS speech, vision or translate
-  APIs, IndicTrans2, or any non-Bodhan model, even as a fallback or for testing.
+- Never add third-party speech, vision, or translation APIs, IndicTrans2, or any
+  non-Bodhan model, even as a fallback or for testing.
 - The LLM may plan, write English, judge results, and choose retries; it must
   never write or rewrite Indian-language text, transcribe audio, read images, or
   generate speech.
