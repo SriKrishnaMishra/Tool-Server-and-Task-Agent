@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 out/
 .cache/
+demo/inputs/
 *.wav
 *.mp3
 *.mp4
