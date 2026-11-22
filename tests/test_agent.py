@@ -7,7 +7,13 @@ from PIL import Image
 
 from bodhan_agent.__main__ import build_parser
 from bodhan_agent.agent import preflight, run_task
-from bodhan_agent.llm import LLMResponse, OpenAICompatibleLLM, ToolCall
+from bodhan_agent.llm import (
+    LLMResponse,
+    OpenAICompatibleLLM,
+    ToolCall,
+    is_malformed_tool_call_error,
+    parse_tool_arguments,
+)
 
 
 def test_demo_translation_input_is_available():
@@ -43,6 +49,28 @@ def test_openai_compatible_llm_supports_groq_inference(monkeypatch):
     assert llm.base_url == "https://api.groq.com/openai/v1"
     assert llm.api_key == "gsk_test-key"
     assert llm.model == "openai/gpt-oss-120b"
+
+
+def test_groq_python_literal_tool_arguments_are_parsed_safely():
+    arguments = parse_tool_arguments(
+        "{'source_language': 'te', 'target_language': 'en', 'text': 'తెలుగు'}",
+        "translate",
+    )
+
+    assert arguments == {
+        "source_language": "te",
+        "target_language": "en",
+        "text": "తెలుగు",
+    }
+
+
+def test_malformed_groq_tool_error_is_detectable():
+    error = RuntimeError(
+        "Error code: 400 - Failed to parse tool call arguments as JSON "
+        "(tool_use_failed)"
+    )
+
+    assert is_malformed_tool_call_error(error) is True
 
 
 def test_openai_compatible_llm_supports_standard_aliases(monkeypatch):
@@ -165,6 +193,19 @@ def test_run_uses_mocked_llm_and_tools_with_summary_only(tmp_path):
     assert trace[-2]["tool"] == "translate"
     assert {"step", "tool", "args", "result_summary", "latency", "cost"} <= trace[-1].keys()
     assert "Assumptions" in (output / "result.md").read_text(encoding="utf-8")
+
+
+def test_planning_prompt_does_not_request_duplicate_inspection(tmp_path):
+    source = tmp_path / "hello.txt"
+    source.write_text("Hello.", encoding="utf-8")
+    output = tmp_path / "out"
+    llm = MockLLM([LLMResponse("Done.")])
+
+    assert run_task("translate the text", source, output, llm=llm, max_steps=5) == 0
+    system_prompt = llm.messages[0][0]["content"]
+    assert "input inventory is complete" in system_prompt.casefold()
+    assert "do not call inspect_media again" in system_prompt.casefold()
+    assert "process each relevant input once" in system_prompt.casefold()
 
 
 def test_tool_messages_redact_nested_transcript_data(tmp_path):
@@ -397,3 +438,52 @@ def test_failed_audio_verification_retries_synthesis_once(tmp_path):
         item for item in report["verification"] if item["tool"] == "synthesize"
     )
     assert synth_verification["ok"] is True
+
+
+def test_srt_task_saves_standalone_subtitle_artifact(tmp_path):
+    source = tmp_path / "voice-note.txt"
+    source.write_text("Voice-note transcription request.", encoding="utf-8")
+    output = tmp_path / "out"
+    llm = MockLLM(
+        [
+            LLMResponse(
+                "",
+                (
+                    ToolCall(
+                        "transcribe",
+                        {"audio_path": str(source), "language": "hi"},
+                        "call-1",
+                    ),
+                ),
+            ),
+            LLMResponse("Created the SRT subtitle."),
+        ]
+    )
+
+    def transcribe(**kwargs):
+        return {
+            "ok": True,
+            "data": {
+                "text": "आज मौसम साफ़ है।",
+                "segments": [
+                    {"start": 0.0, "end": 1.5, "text": "Today the weather is clear."},
+                ],
+            },
+            "cost_inr": 0.001,
+        }
+
+    assert (
+        run_task(
+            "Transcribe this Hindi voice note as English SRT subtitles",
+            source,
+            output,
+            llm=llm,
+            tools={"inspect_media": lambda **kwargs: {}, "transcribe": transcribe},
+            max_steps=10,
+        )
+        == 0
+    )
+
+    srt = (output / "artifacts" / "subtitles.srt").read_text(encoding="utf-8")
+    assert "00:00:00,000 --> 00:00:01,500" in srt
+    assert "Today the weather is clear." in srt

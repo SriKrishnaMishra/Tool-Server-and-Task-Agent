@@ -255,11 +255,19 @@ class BodhanClient:
                     message = str(error or response.text)
             else:
                 message = response.text
+            hint = "Review the request fields and Bodhan API documentation."
+            if model == "ocr" and "OCR is not supported" in message:
+                return self._failure(
+                    model,
+                    "provider_unsupported",
+                    message,
+                    "Ask the Bodhan provider to enable the Indic-OCR model for this deployment.",
+                )
             return self._failure(
                 model,
                 f"http_{response.status_code}",
                 message,
-                "Review the request fields and Bodhan API documentation.",
+                hint,
             )
         data = body if isinstance(body, dict) else {"value": body}
         if model == "translate" and isinstance(body, dict):

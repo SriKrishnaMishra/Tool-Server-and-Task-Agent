@@ -155,6 +155,35 @@ async def test_missing_file_returns_structured_error(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_ocr_provider_error_is_actionable(tmp_path, monkeypatch):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            500,
+            json={
+                "error": {
+                    "message": "OCR is not supported for provider: openai.",
+                }
+            },
+            request=request,
+        )
+
+    image = tmp_path / "test.png"
+    Image.new("RGB", (2, 2)).save(image)
+    monkeypatch.setenv("BODHAN_OCR_KEY", "test-key")
+    async with BodhanClient(
+        cache_dir=tmp_path,
+        transport=httpx.MockTransport(handler),
+        max_retries=0,
+    ) as client:
+        result = await client.ocr(image, language="en")
+
+    assert result.ok is False
+    assert result.error is not None
+    assert result.error.code == "provider_unsupported"
+    assert "Indic-OCR" in result.error.hint
+
+
+@pytest.mark.anyio
 async def test_requests_send_configured_api_key(tmp_path, monkeypatch):
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["authorization"] == "Bearer test-key"
