@@ -301,6 +301,20 @@ def _save_srt_artifact(output: Path, result: Any) -> bool:
     return True
 
 
+def _save_srt_text(output: Path, text: str) -> bool:
+    """Save one translated text block as a short standalone SRT artifact."""
+    text = text.strip()
+    if not text:
+        return False
+    artifacts = output / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    (artifacts / "subtitles.srt").write_text(
+        "1\n00:00:00,000 --> 00:00:03,000\n" + text + "\n",
+        encoding="utf-8",
+    )
+    return True
+
+
 def _verify_synthesis(
     *,
     output: Path,
@@ -712,6 +726,10 @@ def run_task(
                     )
                 elif call.name == "translate":
                     check = verify_translation(call.arguments["text"], result)
+                    if any(word in task.casefold() for word in ("srt", "subtitle")):
+                        translated_text = _result_value(result, "translated", "text")
+                        if translated_text:
+                            _save_srt_text(output, translated_text)
                 if check and not check.ok:
                     if call.name == "translate":
                         guard.reserve(estimated_cost=estimate, paid=estimate > 0)

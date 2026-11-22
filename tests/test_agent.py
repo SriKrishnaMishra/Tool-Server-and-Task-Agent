@@ -505,3 +505,75 @@ def test_srt_task_saves_standalone_subtitle_artifact(tmp_path):
     srt = (output / "artifacts" / "subtitles.srt").read_text(encoding="utf-8")
     assert "00:00:00,000 --> 00:00:01,500" in srt
     assert "Today the weather is clear." in srt
+
+
+def test_srt_task_overwrites_transcript_with_bodhan_translation(tmp_path):
+    source = tmp_path / "voice-note.txt"
+    source.write_text("Hindi voice-note transcription request.", encoding="utf-8")
+    output = tmp_path / "out"
+    llm = MockLLM(
+        [
+            LLMResponse(
+                "",
+                (
+                    ToolCall(
+                        "transcribe",
+                        {"audio_path": str(source), "language": "hi"},
+                        "call-1",
+                    ),
+                ),
+            ),
+            LLMResponse(
+                "",
+                (
+                    ToolCall(
+                        "translate",
+                        {
+                            "text": "आज मौसम साफ़ है।",
+                            "source_language": "hi",
+                            "target_language": "en",
+                        },
+                        "call-2",
+                    ),
+                ),
+            ),
+            LLMResponse("Created the English SRT subtitle."),
+        ]
+    )
+
+    def transcribe(**kwargs):
+        return {
+            "ok": True,
+            "data": {
+                "text": "आज मौसम साफ़ है।",
+                "segments": [{"start": 0.0, "end": 1.5, "text": "आज मौसम साफ़ है।"}],
+            },
+            "cost_inr": 0.001,
+        }
+
+    def translate(**kwargs):
+        return {
+            "ok": True,
+            "translated": "The weather is clear today.",
+            "cost_inr": 0.001,
+        }
+
+    assert (
+        run_task(
+            "Transcribe this Hindi voice note and create English SRT subtitles",
+            source,
+            output,
+            llm=llm,
+            tools={
+                "inspect_media": lambda **kwargs: {},
+                "transcribe": transcribe,
+                "translate": translate,
+            },
+            max_steps=10,
+        )
+        == 0
+    )
+
+    srt = (output / "artifacts" / "subtitles.srt").read_text(encoding="utf-8")
+    assert "The weather is clear today." in srt
+    assert "आज मौसम साफ़ है।" not in srt
