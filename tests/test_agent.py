@@ -78,6 +78,9 @@ def test_openai_compatible_llm_supports_standard_aliases(monkeypatch):
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_COMPATIBLE_API_KEY", raising=False)
+    monkeypatch.delenv("openai_api_key", raising=False)
     monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setenv("OPENAI_MODEL", "llama3")
 
@@ -86,6 +89,21 @@ def test_openai_compatible_llm_supports_standard_aliases(monkeypatch):
     assert llm.base_url == "http://localhost:11434/v1"
     assert llm.model == "llama3"
     assert llm.api_key == "not-needed"
+
+
+def test_openai_compatible_llm_supports_lowercase_key_alias(monkeypatch):
+    monkeypatch.setattr("bodhan_agent.llm.load_dotenv", lambda *args, **kwargs: False)
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("openai_api_key", "sk-test")
+
+    llm = OpenAICompatibleLLM()
+
+    assert llm.base_url == "https://api.openai.com/v1"
+    assert llm.model == "gpt-4o-mini"
+    assert llm.api_key == "sk-test"
 
 
 def test_missing_llm_configuration_writes_failure_report(tmp_path, monkeypatch):

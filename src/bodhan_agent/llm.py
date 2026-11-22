@@ -78,13 +78,18 @@ class OpenAICompatibleLLM:
             "OPENAI_BASE_URL",
             "OPENAI_COMPATIBLE_BASE_URL",
         )
-        self.model = self._value(model, "LLM_MODEL", "OPENAI_MODEL")
+        self.model = self._value(model, "LLM_MODEL", "OPENAI_MODEL", "openai_model")
         self.api_key = self._value(
             api_key,
             "LLM_API_KEY",
             "OPENAI_API_KEY",
             "OPENAI_COMPATIBLE_API_KEY",
+            "openai_api_key",
         )
+        if self.base_url is None and self.api_key and self.api_key.startswith("sk-"):
+            self.base_url = "https://api.openai.com/v1"
+        if self.model is None and self.base_url == "https://api.openai.com/v1":
+            self.model = "gpt-4o-mini"
 
         if self.base_url and self.base_url.startswith("gsk_"):
             if not self.api_key:

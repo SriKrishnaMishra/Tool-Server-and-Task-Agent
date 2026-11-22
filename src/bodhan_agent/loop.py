@@ -485,7 +485,7 @@ def run_task(
     max_seconds: float = 300.0,
     llm: LLM | None = None,
     tools: dict[str, Callable[..., Any]] | None = None,
-    per_call_timeout: float = 60.0,
+    per_call_timeout: float = 120.0,
 ) -> int:
     started = time.monotonic()
     root = Path(__file__).resolve().parents[2]
